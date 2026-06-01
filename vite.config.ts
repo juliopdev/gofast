@@ -5,12 +5,16 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import netlify from "@netlify/vite-plugin-tanstack-start";
 
-export default defineConfig({
-  plugins: [
-    netlify(),
-    tsConfigPaths(),
-    tailwindcss(),
-    tanstackStart(),
-    viteReact(),
-  ],
+export default defineConfig(({ command }) => {
+  const isBuild = command === "build";
+
+  return {
+    plugins: [
+      isBuild && netlify(),
+      tsConfigPaths(),
+      tailwindcss(),
+      tanstackStart(),
+      viteReact(),
+    ].filter(Boolean),
+  };
 });

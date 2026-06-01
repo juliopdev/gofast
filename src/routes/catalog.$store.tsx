@@ -11,16 +11,26 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { products, popularIds, districts } from "@/lib/gofast-data";
+import { products, popularIds, districts, categories } from "@/lib/gofast-data";
 import { useApp, cartCount, cartSubtotal } from "@/store/app-store";
 import { cn } from "@/lib/utils";
 
+type CatalogSearch = {
+  category?: string;
+};
+
 export const Route = createFileRoute("/catalog/$store")({
+  validateSearch: (search: Record<string, unknown>): CatalogSearch => {
+    return {
+      category: search.category as string | undefined,
+    };
+  },
   component: Catalog,
 });
 
 function Catalog() {
   const { store } = Route.useParams();
+  const { category } = Route.useSearch();
   const district = districts.find((d) => d.id === store) ?? districts[0];
   const navigate = useNavigate();
   const { cart, addToCart, decFromCart } = useApp();
@@ -33,9 +43,11 @@ function Catalog() {
     return () => clearTimeout(t);
   }, []);
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = products.filter((p) => {
+    const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
+    const matchesCategory = category ? p.category === category : true;
+    return matchesQuery && matchesCategory;
+  });
   const count = cartCount(cart);
   const subtotal = cartSubtotal(cart);
 
@@ -59,6 +71,33 @@ function Catalog() {
             placeholder="Buscar productos"
             className="w-full h-11 pl-10 pr-4 rounded-xl bg-muted text-sm outline-none"
           />
+        </div>
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar pt-1 border-t">
+          <button
+            onClick={() => navigate({ to: "/catalog/$store", params: { store }, search: {} })}
+            className={cn(
+              "px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap active:scale-95",
+              !category ? "bg-primary text-primary-foreground font-black" : "bg-muted text-muted-foreground"
+            )}
+          >
+            Todos
+          </button>
+          {categories.map((c) => {
+            const active = category === c.name;
+            return (
+              <button
+                key={c.id}
+                onClick={() => navigate({ to: "/catalog/$store", params: { store }, search: { category: c.name } })}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 active:scale-95",
+                  active ? "bg-primary text-primary-foreground font-black" : "bg-muted text-muted-foreground"
+                )}
+              >
+                <span>{c.emoji}</span>
+                <span>{c.name}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

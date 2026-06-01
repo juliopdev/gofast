@@ -24,12 +24,26 @@ function Credits() {
           <div className="mt-1 text-xs opacity-80">Se aplican automáticamente en tu próximo pedido.</div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center gap-2 font-semibold">
-            <Sparkles className="size-4 text-primary" /> GoFast Plus
+        <div className="mt-5 rounded-3xl border border-primary/20 bg-card p-5 relative overflow-hidden shadow-sm">
+          <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider">
+            Recomendado
           </div>
-          <div className="text-sm text-muted-foreground mt-1">Envíos gratis ilimitados por S/29.90/mes</div>
-          <Button size="sm" className="mt-3">Probar gratis 7 días</Button>
+          <div className="flex items-center gap-2 font-black text-lg">
+            <Sparkles className="size-5 text-primary" /> GoFast Prime
+          </div>
+          <div className="mt-1 text-2xl font-black text-foreground">S/19.90 <span className="text-xs text-muted-foreground font-normal">/ mes</span></div>
+          <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="text-primary font-bold">✓</span> Envíos gratis ilimitados en compras mayores a S/30
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-primary font-bold">✓</span> Prioridad de despacho garantizada en horas punta
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-primary font-bold">✓</span> 5% de reembolso (cashback) directo en tus créditos
+            </div>
+          </div>
+          <Button size="sm" className="mt-4 w-full rounded-xl py-4 h-10 font-bold">Probar 7 días gratis</Button>
         </div>
 
         <h2 className="mt-6 mb-2 text-sm font-bold text-muted-foreground">Historial</h2>

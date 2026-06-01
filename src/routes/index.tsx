@@ -14,6 +14,7 @@ import {
 import { districts, categories } from "@/lib/gofast-data";
 import { useApp } from "@/store/app-store";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,7 +24,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { districtId, setDistrict, districtStatuses } = useApp();
+  const {
+    districtId,
+    setDistrict,
+    districtStatuses,
+    addresses,
+    activeAddressId,
+    setActiveAddressId,
+    addAddress,
+  } = useApp();
   const navigate = useNavigate();
   const district = districts.find((d) => d.id === districtId)!;
   const status = districtStatuses[districtId];
@@ -31,47 +40,131 @@ function Home() {
   const [notifyPhone, setNotifyPhone] = useState("");
   const [notifySent, setNotifySent] = useState(false);
 
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newAddrLabel, setNewAddrLabel] = useState("");
+  const [newAddrDistrict, setNewAddrDistrict] = useState("ica");
+
+  const activeAddress = addresses.find((a) => a.id === activeAddressId) ?? addresses[0];
+
   return (
     <PhoneShell>
       <div className="bg-secondary text-secondary-foreground px-5 pt-6 pb-8 rounded-b-3xl">
         <div className="text-xs opacity-70">Entregando en</div>
-        <Drawer open={pickerOpen} onOpenChange={setPickerOpen}>
+        <Drawer open={pickerOpen} onOpenChange={(open) => {
+          setPickerOpen(open);
+          if (!open) setShowAddForm(false);
+        }}>
           <DrawerTrigger asChild>
-            <button className="mt-1 flex items-center gap-1.5 active:scale-95 transition-transform">
-              <span className="text-lg font-bold">{district.name}</span>
-              <ChevronDown className="size-4" />
+            <button className="mt-1 flex items-center gap-1.5 active:scale-95 transition-transform text-left max-w-full">
+              <span className="text-lg font-bold line-clamp-1">{activeAddress.label}</span>
+              <ChevronDown className="size-4 flex-shrink-0" />
             </button>
           </DrawerTrigger>
-          <DrawerContent>
+          <DrawerContent className="max-h-[85vh]">
             <DrawerHeader>
-              <DrawerTitle>Elige tu distrito</DrawerTitle>
+              <DrawerTitle>Elige tu dirección de entrega</DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-6 space-y-2">
-              {districts.map((d) => {
-                const s = districtStatuses[d.id];
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() => {
-                      setDistrict(d.id);
-                      setPickerOpen(false);
-                      setNotifySent(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between rounded-2xl border bg-card p-4 text-left active:scale-[0.98] transition",
-                      d.id === districtId && "border-primary ring-2 ring-primary/20"
-                    )}
-                  >
-                    <div>
-                      <div className="font-semibold text-card-foreground">{d.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {d.storeName} · {d.riders} repartidores
+            <div className="px-4 pb-6 space-y-4 overflow-y-auto no-scrollbar">
+              <div className="space-y-2">
+                {addresses.map((a) => {
+                  const d = districts.find((dist) => dist.id === a.districtId)!;
+                  const s = districtStatuses[a.districtId];
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => {
+                        setActiveAddressId(a.id);
+                        setPickerOpen(false);
+                        setNotifySent(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-2xl border bg-card p-4 text-left active:scale-[0.98] transition",
+                        a.id === activeAddressId && "border-primary ring-2 ring-primary/20"
+                      )}
+                    >
+                      <div>
+                        <div className="font-semibold text-card-foreground text-sm">{a.label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {d.storeName} · {d.name}
+                        </div>
                       </div>
+                      <StatusDot status={s} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-t pt-4">
+                {showAddForm ? (
+                  <div className="rounded-2xl border bg-muted/40 p-4 space-y-3">
+                    <div className="text-sm font-semibold">Nueva dirección</div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-muted-foreground">Etiqueta o Dirección Completa</label>
+                      <input
+                        value={newAddrLabel}
+                        onChange={(e) => setNewAddrLabel(e.target.value)}
+                        placeholder="Ej: Depa Playa, Casa 2, Trabajo..."
+                        className="w-full h-10 px-3 rounded-xl border bg-card text-sm outline-none text-foreground placeholder:text-muted-foreground/60"
+                      />
                     </div>
-                    <StatusDot status={s} />
-                  </button>
-                );
-              })}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-muted-foreground">Distrito Asociado</label>
+                      <select
+                        value={newAddrDistrict}
+                        onChange={(e) => setNewAddrDistrict(e.target.value)}
+                        className="w-full h-10 px-2 rounded-xl border bg-card text-sm outline-none text-foreground"
+                      >
+                        {districts.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name} ({d.storeName})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 rounded-xl h-9"
+                        onClick={() => setShowAddForm(false)}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 rounded-xl h-9"
+                        onClick={() => {
+                          if (!newAddrLabel.trim()) {
+                            toast.error("Ingresa una etiqueta o dirección");
+                            return;
+                          }
+                          const newId = `addr-${Date.now()}`;
+                          addAddress({
+                            id: newId,
+                            label: newAddrLabel.trim(),
+                            districtId: newAddrDistrict,
+                          });
+                          setActiveAddressId(newId);
+                          setNewAddrLabel("");
+                          setShowAddForm(false);
+                          setPickerOpen(false);
+                          toast.success("¡Dirección guardada!");
+                        }}
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-2xl py-6 text-sm font-semibold border-dashed border-2"
+                    onClick={() => setShowAddForm(true)}
+                  >
+                    ➕ Añadir nueva dirección
+                  </Button>
+                )}
+              </div>
             </div>
           </DrawerContent>
         </Drawer>
@@ -86,12 +179,12 @@ function Home() {
         </div>
       </div>
 
-      <div className="px-5 -mt-4">
+      <div className="px-5 mt-4">
         {status === "yellow" && (
           <Alert
             tone="warning"
             title="⚠️ Alta demanda en esta zona"
-            body={`Entrega estimada: 50–65 min. Te daremos S/10 de crédito por tu paciencia.`}
+            body={`Entrega estimada: 50–65 min. Te daremos S/3.00 de crédito por tu paciencia.`}
           />
         )}
         {status === "red" && (
@@ -140,12 +233,26 @@ function Home() {
       </div>
 
       <div className="px-5 mt-6">
-        <h2 className="text-base font-bold mb-3">Categorías</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold">Categorías</h2>
+          <button
+            onClick={() => navigate({ to: "/catalog/$store", params: { store: districtId } })}
+            className="text-xs text-primary font-extrabold active:scale-95 transition"
+          >
+            Ver todo
+          </button>
+        </div>
         <div className="grid grid-cols-4 gap-3">
           {categories.map((c) => (
             <button
               key={c.id}
-              onClick={() => navigate({ to: "/catalog/$store", params: { store: districtId } })}
+              onClick={() =>
+                navigate({
+                  to: "/catalog/$store",
+                  params: { store: districtId },
+                  search: { category: c.name },
+                })
+              }
               className="flex flex-col items-center gap-1.5 rounded-2xl bg-card p-3 active:scale-95 transition"
             >
               <span className="text-2xl">{c.emoji}</span>

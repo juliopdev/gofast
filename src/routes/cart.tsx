@@ -20,18 +20,31 @@ export const Route = createFileRoute("/cart")({
 
 function Cart() {
   const navigate = useNavigate();
-  const { cart, districtId, addToCart, decFromCart, removeFromCart, clearCart, addOrder, addCredit } =
+  const { cart, districtId, addToCart, decFromCart, removeFromCart, clearCart, addOrder, addCredit, credits } =
     useApp();
   const district = districts.find((d) => d.id === districtId)!;
   const [paying, setPaying] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const [expressShipping, setExpressShipping] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponApplied, setCouponApplied] = useState<string | null>(null);
+  const [applyCredits, setApplyCredits] = useState(false);
+
   const itemCount = cart.reduce((a, c) => a + c.qty, 0);
   const subtotal = cartSubtotal(cart);
   const delivery = useMemo(() => 5 + Math.round(district.extraMinutes / 5), [district]);
-  const total = subtotal + delivery;
+
+  const expressCost = expressShipping ? 2 : 0;
+  const deliveryDiscount = couponApplied === "BIENVENIDA" ? delivery : 0;
+  const subtotalAfterCoupon = subtotal + delivery + expressCost - deliveryDiscount;
+  const usableCredits = applyCredits ? Math.min(credits, subtotalAfterCoupon) : 0;
+  const finalTotal = Math.max(0, subtotalAfterCoupon - usableCredits);
+
   const est = estimateDelivery(districtId, itemCount);
-  const longWindow = est.max > 45;
+  const estMin = expressShipping ? Math.max(10, est.min - 8) : est.min;
+  const estMax = expressShipping ? Math.max(15, est.max - 8) : est.max;
+  const longWindow = estMax > 45;
 
   function checkout() {
     setPaying(true);
@@ -41,23 +54,32 @@ function Cart() {
       const orderId = `o${Date.now()}`;
       const rider =
         ridersByDistrict[districtId]?.[0] ?? { name: "Repartidor", rating: 4.8, plate: "MA-0000" };
+      
       addOrder({
         id: orderId,
         districtId,
         items: cart,
         subtotal,
-        delivery,
-        total,
-        promisedMin: est.min,
-        promisedMax: est.max,
+        delivery: couponApplied === "BIENVENIDA" ? 0 : delivery,
+        total: finalTotal,
+        promisedMin: estMin,
+        promisedMax: estMax,
         createdAt: Date.now(),
         status: "confirmed",
         rider,
-        creditsAwarded: longWindow ? 10 : 0,
+        creditsAwarded: longWindow ? 3 : 0,
+        expressShipping,
+        couponApplied,
+        creditUsed: usableCredits,
       });
+
+      if (usableCredits > 0) {
+        addCredit(-usableCredits, `Compra en tienda - Pedido #${orderId.slice(-4)}`);
+      }
+
       if (longWindow) {
-        addCredit(10, `Ventana extendida - ${district.name}`);
-        toast.success("S/10 de crédito añadidos a tu cuenta");
+        addCredit(3, `Ventana extendida - ${district.name}`);
+        toast.success("S/3.00 de crédito añadidos a tu cuenta");
       }
       clearCart();
       setTimeout(() => {
@@ -124,14 +146,14 @@ function Cart() {
         <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
           <div className="flex items-center gap-2 font-semibold">
             <Clock className="size-4 text-primary" />
-            Tiempo estimado de entrega
+            Tiempo estimado de entrega {expressShipping && "⚡ Express"}
           </div>
           <div className="mt-1 text-2xl font-black text-primary">
-            {est.min}–{est.max} min
+            {estMin}–{estMax} min
           </div>
           <div className="text-xs text-muted-foreground mt-1">
             Calculado con tu zona ({district.name}), {itemCount} producto{itemCount !== 1 ? "s" : ""} y la
-            cola actual.
+            cola actual. {expressShipping && "Envío Express priorizado."}
           </div>
           {longWindow && (
             <motion.div
@@ -141,18 +163,114 @@ function Cart() {
             >
               <Gift className="size-5 mt-0.5" />
               <div className="text-sm font-medium">
-                Te regalamos <b>S/10 de crédito</b> por aceptar esta ventana de entrega.
+                Te regalamos <b>S/3.00 de crédito</b> por aceptar esta ventana de entrega.
               </div>
             </motion.div>
           )}
         </div>
       </div>
 
+      <div className="px-4 mt-4">
+        <div className="rounded-2xl border bg-card p-4 flex items-center justify-between shadow-sm">
+          <div className="flex-1 pr-3">
+            <div className="flex items-center gap-1.5 font-bold text-sm">
+              <span>⚡</span> Envío Express / Prioritario
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Prioriza tu pedido para recibirlo 5–10 min antes por <b>+S/2.00</b>.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={expressShipping}
+            onChange={(e) => setExpressShipping(e.target.checked)}
+            className="size-5 accent-primary cursor-pointer rounded"
+          />
+        </div>
+      </div>
+
+      <div className="px-4 mt-3">
+        <div className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+          <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">¿Tienes un cupón?</div>
+          <div className="flex gap-2">
+            <input
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value)}
+              placeholder="Código (ej: BIENVENIDA)"
+              disabled={!!couponApplied}
+              className="flex-1 h-10 px-3 rounded-xl border bg-muted/30 text-sm outline-none uppercase placeholder:normal-case disabled:opacity-50 text-foreground"
+            />
+            {couponApplied ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 text-destructive border-destructive/20 bg-destructive/5 rounded-xl text-xs font-bold"
+                onClick={() => {
+                  setCouponApplied(null);
+                  setCouponInput("");
+                }}
+              >
+                Quitar
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-10 rounded-xl px-4 text-xs font-bold"
+                onClick={() => {
+                  if (couponInput.trim().toUpperCase() === "BIENVENIDA") {
+                    setCouponApplied("BIENVENIDA");
+                    toast.success("¡Cupón BIENVENIDA aplicado! Envío gratis.");
+                  } else {
+                    toast.error("Cupón no válido");
+                  }
+                }}
+              >
+                Aplicar
+              </Button>
+            )}
+          </div>
+          {couponApplied && (
+            <div className="text-xs text-success font-semibold flex items-center gap-1">
+              ✓ Cupón BIENVENIDA aplicado (¡Envío gratis!)
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 mt-3">
+        <div className="rounded-2xl border bg-card p-4 flex items-center justify-between shadow-sm">
+          <div className="flex-1 pr-3">
+            <div className="flex items-center gap-1.5 font-bold text-sm">
+              <span>💼</span> Usar Créditos Disponibles
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Tienes <b>S/{credits.toFixed(2)}</b> de saldo.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={applyCredits}
+            disabled={credits <= 0}
+            onChange={(e) => setApplyCredits(e.target.checked)}
+            className="size-5 accent-primary cursor-pointer rounded disabled:opacity-50"
+          />
+        </div>
+      </div>
+
       <div className="px-4 mt-4 space-y-1.5 text-sm">
         <Row label="Subtotal" value={`S/${subtotal.toFixed(2)}`} />
         <Row label="Envío" value={`S/${delivery.toFixed(2)}`} />
+        {expressShipping && (
+          <Row label="Envío Express" value="+S/2.00" />
+        )}
+        {couponApplied && (
+          <Row label={<span className="text-success font-medium">Cupón BIENVENIDA</span>} value={<span className="text-success font-medium">-S/{delivery.toFixed(2)}</span>} />
+        )}
+        {usableCredits > 0 && (
+          <Row label={<span className="text-success font-medium">Créditos usados</span>} value={<span className="text-success font-medium">-S/{usableCredits.toFixed(2)}</span>} />
+        )}
         <div className="h-px bg-border my-2" />
-        <Row label={<span className="font-bold">Total</span>} value={<span className="font-bold text-base">S/{total.toFixed(2)}</span>} />
+        <Row label={<span className="font-bold">Total</span>} value={<span className="font-bold text-base text-primary">S/{finalTotal.toFixed(2)}</span>} />
       </div>
 
       <div className="p-4 pb-8">
@@ -161,7 +279,7 @@ function Cart() {
           disabled={paying}
           onClick={checkout}
         >
-          {paying ? "Procesando..." : `Pagar con Yape/Plin · S/${total.toFixed(2)}`}
+          {paying ? "Procesando..." : `Pagar con Yape/Plin · S/${finalTotal.toFixed(2)}`}
         </Button>
       </div>
 

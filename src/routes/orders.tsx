@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/store/app-store";
 import { districts } from "@/lib/gofast-data";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/orders")({
   component: Orders,
@@ -14,8 +16,8 @@ function Orders() {
   const { orders, addToCart } = useApp();
   const navigate = useNavigate();
   const [tab, setTab] = useState("active");
-  const active = orders.filter((o) => o.status !== "delivered");
-  const past = orders.filter((o) => o.status === "delivered");
+  const active = orders.filter((o) => o.status !== "delivered" && o.status !== "refunded");
+  const past = orders.filter((o) => o.status === "delivered" || o.status === "refunded");
 
   return (
     <PhoneShell>
@@ -68,24 +70,43 @@ function Orders() {
                 <div key={o.id} className="rounded-2xl bg-card p-4">
                   <div className="flex items-center justify-between">
                     <div className="font-semibold text-sm">{d.storeName} · {d.name}</div>
-                    <span className="text-[10px] text-muted-foreground">Entregado</span>
+                    <span className={cn(
+                      "text-[10px] font-bold px-2.5 py-0.5 rounded-full",
+                      o.status === "refunded" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"
+                    )}>
+                      {o.status === "refunded" ? "Reembolsado" : "Entregado"}
+                    </span>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {o.items.length} productos · S/{o.total.toFixed(2)}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-3"
-                    onClick={() => {
-                      o.items.forEach((i) => {
-                        for (let n = 0; n < i.qty; n++) addToCart(i.product);
-                      });
-                      navigate({ to: "/cart" });
-                    }}
-                  >
-                    Reordenar
-                  </Button>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-xl text-xs font-bold"
+                      onClick={() => {
+                        o.items.forEach((i) => {
+                          for (let n = 0; n < i.qty; n++) addToCart(i.product);
+                        });
+                        navigate({ to: "/cart" });
+                      }}
+                    >
+                      Reordenar
+                    </Button>
+                    {o.status === "delivered" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 rounded-xl text-xs font-bold border-primary/20 text-primary hover:bg-primary/5"
+                        onClick={() => {
+                          toast.success(`🧾 ¡Boleta del pedido #${o.id.slice(-4).toUpperCase()} descargada con éxito! (PDF)`);
+                        }}
+                      >
+                        Descargar boleta
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })

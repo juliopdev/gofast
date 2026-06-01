@@ -4,7 +4,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useApp } from "@/store/app-store";
-import { MapPin, CreditCard, ShieldCheck, BarChart3 } from "lucide-react";
+import { MapPin, CreditCard, ShieldCheck, BarChart3, Bike } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   component: Profile,
@@ -28,12 +28,11 @@ function Profile() {
       </div>
 
       <div className="px-5 mt-5 space-y-2">
-        <Item icon={MapPin} title="Direcciones guardadas" subtitle="2 direcciones" />
-        <Item icon={CreditCard} title="Métodos de pago" subtitle="Yape · Plin" />
-        <Item icon={ShieldCheck} title="Privacidad y seguridad" />
-        <Link to="/admin">
-          <Item icon={BarChart3} title="War Room (Admin)" subtitle="Dashboard para el equipo" />
-        </Link>
+        <Item icon={MapPin} to="/to" title="Direcciones guardadas" subtitle="2 direcciones" />
+        <Item icon={CreditCard} to="/to" title="Métodos de pago" subtitle="Yape · Plin" />
+        <Item icon={ShieldCheck} to="/to" title="Privacidad y seguridad" />
+        <Item icon={BarChart3} to="/admin" title="War Room (Admin)" subtitle="Dashboard para el equipo" />
+        <Item icon={Bike} to="/carrier" title="Portal de Repartidor" subtitle="Simular entregas y rutas (Demo)" />
       </div>
 
       <div className="px-5 mt-5 rounded-2xl bg-card p-4 flex items-center justify-between">
@@ -84,20 +83,24 @@ function Item({
   icon: Icon,
   title,
   subtitle,
+  to,
 }: {
   icon: typeof MapPin;
   title: string;
   subtitle?: string;
+  to?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-card p-3 active:scale-[0.98] transition">
-      <div className="size-10 rounded-xl bg-muted grid place-items-center text-foreground">
-        <Icon className="size-5" />
-      </div>
-      <div className="flex-1">
-        <div className="text-sm font-medium">{title}</div>
-        {subtitle && <div className="text-[11px] text-muted-foreground">{subtitle}</div>}
-      </div>
+    <div className="rounded-2xl bg-card p-3 active:scale-[0.98] transition">
+      <Link to={to} className="flex items-center gap-3 w-full">
+        <div className="size-10 rounded-xl bg-muted grid place-items-center text-foreground">
+          <Icon className="size-5" />
+        </div>
+        <div className="flex-1">
+          <div className="text-sm font-medium">{title}</div>
+          {subtitle && <div className="text-[11px] text-muted-foreground">{subtitle}</div>}
+        </div>
+      </Link>
     </div>
   );
 }
